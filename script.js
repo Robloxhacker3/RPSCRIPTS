@@ -1,5 +1,5 @@
 /* script.js
-   Updated to ensure modal title always updates and scripts are revealed after ad delays.
+   Updated: Ads require click and 5s stay, 2 ads per unlock, random ad every 40s.
    Ad slot IDs and logic preserved.
 */
 
@@ -31,7 +31,6 @@ async function tryCopy(text){
   }catch(e){ return false; }
 }
 
-/* SVG placeholder */
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function svgPlaceholder(id, name){
   const hue = (id*47)%360;
@@ -185,6 +184,7 @@ function applyFilter(){
 let currentScript = null;
 function clearAds(){ adSlotContainer.innerHTML = ''; modalFooter.hidden = true; revealedCode.textContent = ''; }
 
+// Create AdSense ad slot
 function createAdSlot(slotId, client){
   const wrapper = document.createElement('div'); wrapper.className = 'ad-wrapper'; wrapper.style.width = '100%';
   const ins = document.createElement('ins'); ins.className = 'adsbygoogle'; ins.style.display = 'block';
@@ -196,40 +196,92 @@ function createAdSlot(slotId, client){
   return { wrapper, ins };
 }
 
-/* --- THIS FUNCTION CONTROLS THE MODAL/ADS/REVEAL --- */
+// Show ad modal, require click and 5 seconds
+function showAdModal(slotId, client, onComplete) {
+  overlay.hidden = false;
+  overlay.setAttribute('aria-hidden','false');
+  $('modalTitle').textContent = 'Please click the ad and stay for 5 seconds.';
+
+  clearAds();
+
+  // Insert ad
+  const ad = createAdSlot(slotId, client);
+  adSlotContainer.appendChild(ad.wrapper);
+  try{ (adsbygoogle = window.adsbygoogle || []).push({}); }catch(e){}
+
+  let clicked = false;
+  let timer = null;
+
+  function adClickHandler(e) {
+    if (!clicked) {
+      clicked = true;
+      $('modalTitle').textContent = 'Stay for 5 seconds...';
+      timer = setTimeout(() => {
+        adSlotContainer.removeEventListener('click', adClickHandler);
+        if (typeof onComplete === 'function') onComplete();
+      }, 5000);
+    }
+  }
+
+  adSlotContainer.addEventListener('click', adClickHandler);
+
+  // If modal closed, cancel timer
+  closeModalBtn.onclick = () => {
+    overlay.hidden = true;
+    overlay.setAttribute('aria-hidden','true');
+    clearAds();
+    if (timer) clearTimeout(timer);
+    adSlotContainer.removeEventListener('click', adClickHandler);
+  };
+}
+
+// Ad unlock sequence
 async function startAdSequenceFor(item){
   currentScript = item;
-  overlay.hidden = false; 
+  overlay.hidden = false;
   overlay.setAttribute('aria-hidden','false');
-  $('modalTitle').textContent = 'Loading...'; // matches index.html
   clearAds();
 
   const settings = loadSettings();
-  const slot1 = settings.adSlot1 || '2117641886'; // default adSlot1
-  const slot2 = settings.adSlot2 || '4339398974'; // default adSlot2
-  const client = settings.adClient || 'ca-pub-7601925052503417'; // default adClient
-  const adDelay = Number(adDelaySelect.value||4)*1000;
+  const slot1 = settings.adSlot1 || '2117641886';
+  const slot2 = settings.adSlot2 || '4339398974';
+  const client = settings.adClient || 'ca-pub-7601925052503417';
 
   // First ad
-  const a1 = createAdSlot(slot1, client);
-  adSlotContainer.appendChild(a1.wrapper);
-  try{ (adsbygoogle = window.adsbygoogle || []).push({}); }catch(e){}
-  await new Promise(r=>setTimeout(r, adDelay));
+  await new Promise(resolve => {
+    showAdModal(slot1, client, resolve);
+  });
+  overlay.hidden = true; clearAds();
 
   // Second ad
-  const a2 = createAdSlot(slot2, client);
-  adSlotContainer.appendChild(a2.wrapper);
-  try{ (adsbygoogle = window.adsbygoogle || []).push({}); }catch(e){}
-  await new Promise(r=>setTimeout(r, adDelay));
+  await new Promise(resolve => {
+    showAdModal(slot2, client, resolve);
+  });
+  overlay.hidden = true; clearAds();
 
-  // Reveal and copy, always update modalTitle after both ad delays
+  // Reveal script
+  overlay.hidden = false;
+  overlay.setAttribute('aria-hidden','false');
+  $('modalTitle').textContent = `Script: ${item.name || ('ID '+item.id)}`;
   modalFooter.hidden = false;
   revealedCode.textContent = item.code || '';
   revealedCode.focus();
   const ok = await tryCopy(item.code || '');
   showToast(ok ? 'Script copied to clipboard' : 'Automatic copy failed; use Copy button');
-  $('modalTitle').textContent = `Script: ${item.name || ('ID '+item.id)}`;
 }
+
+// Random ad popup every 40 seconds
+function showRandomAdPopup() {
+  const settings = loadSettings();
+  const slots = [settings.adSlot1 || '2117641886', settings.adSlot2 || '4339398974'];
+  const client = settings.adClient || 'ca-pub-7601925052503417';
+  const slotId = slots[Math.floor(Math.random() * slots.length)];
+  showAdModal(slotId, client, () => {
+    overlay.hidden = true;
+    clearAds();
+  });
+}
+setInterval(showRandomAdPopup, 40000);
 
 /* modal actions */
 manualCopyBtn.addEventListener('click', ()=>{ tryCopy(revealedCode.textContent); });
