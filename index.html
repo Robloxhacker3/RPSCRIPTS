@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Script App — Static Script Cards</title>
+
+  <!-- AdSense: replace ca-pub-YOUR_PUBLISHER_ID with your publisher ID -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"
+    data-ad-client="ca-pub-YOUR_PUBLISHER_ID"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>RPSCRIPTS</h1>
+    <p class="subtitle">Browse, search, and copy scripts. Ad placeholders will display before revealing code. Make sure you follow AdSense policies.</p>
+  </header>
+
+  <main class="main">
+    <section class="controls">
+      <label class="search">
+        <span class="visually-hidden">Search scripts</span>
+        <input id="searchInput" type="search" placeholder="Search by id, name, link or code…" aria-label="Search scripts" />
+      </label>
+
+      <div class="right-controls">
+        <div class="count" id="countDisplay" aria-live="polite">0 / 0</div>
+        <label class="ad-delay">
+          Ad delay:
+          <select id="adDelaySelect" aria-label="Ad display seconds">
+            <option value="3">3s</option>
+            <option value="4" selected>4s</option>
+            <option value="5">5s</option>
+            <option value="7">7s</option>
+          </select>
+        </label>
+
+        <button id="toggleDevBtn" class="btn ghost" aria-expanded="false">Developer JSON Editor</button>
+      </div>
+    </section>
+
+    <section id="grid" class="grid" aria-live="polite"></section>
+
+    <div id="noResults" class="no-results" hidden>No scripts found.</div>
+  </main>
+
+  <aside id="devPanel" class="devpanel" hidden>
+    <div class="devpanel-inner">
+      <h2>Developer JSON Editor</h2>
+      <p class="muted">Paste an array of script objects (or a single object). If you paste an array it will <strong>replace</strong> the list. If you paste single object(s), they will be appended with unique ids.</p>
+
+      <textarea id="devJson" placeholder='Paste JSON here (array or object)'></textarea>
+
+      <div class="devpanel-actions">
+        <input type="file" id="fileInput" accept=".json" />
+        <button id="applyJson" class="btn primary">Apply</button>
+        <button id="resetStorage" class="btn danger">Reset (clear local edits)</button>
+      </div>
+
+      <details class="muted"><summary>Example note</summary>
+        The scripts.json file included has a small "README" element explaining how to add scripts.
+      </details>
+    </div>
+  </aside>
+
+  <!-- modal for ad display + code reveal -->
+  <div id="overlay" class="overlay" hidden aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h3 id="modalTitle">Preparing script…</h3>
+      <div id="adSlotContainer" class="ad-slots">
+        <!-- ad slots will be injected here -->
+      </div>
+
+      <div id="modalFooter" class="modal-footer" hidden>
+        <pre id="revealedCode" class="code-block" tabindex="0"></pre>
+        <div class="modal-actions">
+          <button id="manualCopy" class="btn">Copy</button>
+          <button id="closeModal" class="btn ghost">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- small toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <footer class="footer">
+    <small>AdSense placeholders: Replace <code>ca-pub-YOUR_PUBLISHER_ID</code>, <code>YOUR_AD_SLOT_1</code> and <code>YOUR_AD_SLOT_2</code>. Use <code>data-adtest="on"</code> during development. Do not encourage clicks. Follow AdSense policy.</small>
+  </footer>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
