@@ -1,7 +1,7 @@
 {
   "README": "This file contains the array 'scripts'. To add a new script, append an object with { id:number, name:string, image:string or empty, link:string, code:string }. If you paste an array into the in-app JSON editor it will replace the list. If you paste a single object it will be appended with a unique id.",
   "scripts": [
-    {"id":1, "name":"Hello World Logger", "image":"", "link":"#", "code":"// Hello World\nconsole.log('Hello, world!');"},
+    {"id":1, "name":"III", "image":"", "link":"#", "code":"// IIII
     {"id":2, "name":"Random Greeter", "image":"", "link":"#", "code":"// Greeter\nfunction greet(name){ return `Hi, ${name}!`; }"},
     {"id":3, "name":"Simple Counter", "image":"", "link":"#", "code":"// Counter\nlet i=0; setInterval(()=>console.log(++i),1000);"},
     {"id":4, "name":"Utils: Round Number", "image":"", "link":"#", "code":"// Round helper\nfunction r(n, p=2){ return Number(n.toFixed(p)); }"},
