@@ -1,10 +1,6 @@
 /* script.js
-   Updated to use your provided AdSense script tag.
-   Set Ad Slot IDs in Dev panel (Ad Slot 1 & Ad Slot 2). Publisher/client defaults to ca-pub-7601925052503417.
-   Behavior:
-    - Click "Get Script" -> show Ad #1 for configured seconds -> show Ad #2 -> reveal script and copy to clipboard.
-    - Dev JSON editor to replace/append scripts (persisted to localStorage).
-    - Executors panel: add URLs or upload files to create downloadable entries.
+   Updated to ensure modal title always updates and scripts are revealed after ad delays.
+   Ad slot IDs and logic preserved.
 */
 
 /* ---------- Utilities ---------- */
@@ -196,62 +192,59 @@ function createAdSlot(slotId, client){
   if(slotId) ins.setAttribute('data-ad-slot', slotId);
   ins.setAttribute('data-ad-format', 'auto');
   ins.setAttribute('data-full-width-responsive', 'true');
-  // during development: ins.setAttribute('data-adtest','on');
   wrapper.appendChild(ins);
   return { wrapper, ins };
 }
 
-// ...existing code above...
-
+/* --- THIS FUNCTION CONTROLS THE MODAL/ADS/REVEAL --- */
 async function startAdSequenceFor(item){
   currentScript = item;
-  overlay.hidden = false; overlay.setAttribute('aria-hidden','false');
-  $('modalTitle').textContent = 'Displaying ads before revealing script';
+  overlay.hidden = false; 
+  overlay.setAttribute('aria-hidden','false');
+  $('modalTitle').textContent = 'Loading...'; // matches index.html
   clearAds();
 
   const settings = loadSettings();
-  const slot1 = settings.adSlot1 || '2117641886';
-  const slot2 = settings.adSlot2 || '4339398974';
-  const client = settings.adClient || 'ca-pub-7601925052503417';
+  const slot1 = settings.adSlot1 || '2117641886'; // default adSlot1
+  const slot2 = settings.adSlot2 || '4339398974'; // default adSlot2
+  const client = settings.adClient || 'ca-pub-7601925052503417'; // default adClient
   const adDelay = Number(adDelaySelect.value||4)*1000;
 
-  // first ad
+  // First ad
   const a1 = createAdSlot(slot1, client);
   adSlotContainer.appendChild(a1.wrapper);
   try{ (adsbygoogle = window.adsbygoogle || []).push({}); }catch(e){}
   await new Promise(r=>setTimeout(r, adDelay));
 
-  // second ad
+  // Second ad
   const a2 = createAdSlot(slot2, client);
   adSlotContainer.appendChild(a2.wrapper);
   try{ (adsbygoogle = window.adsbygoogle || []).push({}); }catch(e){}
   await new Promise(r=>setTimeout(r, adDelay));
 
-  // reveal and copy (FIX: always update modalTitle and reveal code after both delays)
+  // Reveal and copy, always update modalTitle after both ad delays
   modalFooter.hidden = false;
   revealedCode.textContent = item.code || '';
   revealedCode.focus();
   const ok = await tryCopy(item.code || '');
   showToast(ok ? 'Script copied to clipboard' : 'Automatic copy failed; use Copy button');
-  // This guarantees that the modalTitle changes after ad sequence even if ads fail
   $('modalTitle').textContent = `Script: ${item.name || ('ID '+item.id)}`;
 }
 
-// ...existing code below...
-
 /* modal actions */
-manualCopyBtn.addEventListener('click', async ()=>{ if(!currentScript) return; const ok = await tryCopy(currentScript.code||''); showToast(ok?'Copied to clipboard':'Copy failed'); });
+manualCopyBtn.addEventListener('click', ()=>{ tryCopy(revealedCode.textContent); });
 closeModalBtn.addEventListener('click', ()=>{ overlay.hidden = true; overlay.setAttribute('aria-hidden','true'); clearAds(); });
-window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && !overlay.hidden){ overlay.hidden = true; overlay.setAttribute('aria-hidden','true'); clearAds(); } });
 
-/* ---------- Developer JSON editor & settings ---------- */
-toggleDevBtn.addEventListener('click', ()=>{ const open = devPanel.hidden; devPanel.hidden = !open; toggleDevBtn.setAttribute('aria-expanded', String(open)); });
+toggleDevBtn.addEventListener('click', ()=>{
+  devPanel.hidden = !devPanel.hidden;
+  toggleDevBtn.setAttribute('aria-expanded', (!devPanel.hidden).toString());
+});
 closeDev.addEventListener('click', ()=>{ devPanel.hidden = true; toggleDevBtn.setAttribute('aria-expanded','false'); });
 
-applyJson.addEventListener('click', ()=> {
-  const raw = devJson.value.trim(); if(!raw){ showToast('No JSON provided'); return; }
+applyJson.addEventListener('click', ()=>{
   let parsed;
-  try{ parsed = JSON.parse(raw); }catch(e){ showToast('JSON parse error: '+e.message); return; }
+  try{ parsed = JSON.parse(devJson.value); }
+  catch(e){ showToast('Invalid JSON'); return; }
   if(Array.isArray(parsed)){ scripts = normalizeAndEnsureIds(parsed, true); saveScripts(scripts); applyFilter(); showToast('Replaced scripts'); return; }
   if(parsed && Array.isArray(parsed.scripts)){ scripts = normalizeAndEnsureIds(parsed.scripts, true); saveScripts(scripts); applyFilter(); showToast('Replaced scripts from object'); return; }
   if(parsed && typeof parsed === 'object'){ const items = Array.isArray(parsed) ? parsed : [parsed]; scripts = appendWithUniqueIds(items); saveScripts(scripts); applyFilter(); showToast('Appended scripts'); return; }
@@ -269,24 +262,22 @@ adSlot2Input.addEventListener('change', readAndSaveSettings);
 adClientInput.addEventListener('change', readAndSaveSettings);
 
 /* ---------- Executors UI ---------- */
-addExecutorBtn.addEventListener('click', ()=>{ addExecutorArea.hidden = false; execName.value=''; execUrl.value=''; execFile.value=''; execName.focus(); });
-cancelExec.addEventListener('click', ()=>{ addExecutorArea.hidden = true; });
+addExecutorBtn.addEventListener('click', ()=>{ addExecutorArea.hidden = false; });
+cancelExec.addEventListener('click', ()=>{ addExecutorArea.hidden = true; execName.value = ''; execUrl.value = ''; execFile.value = ''; });
 
 saveExec.addEventListener('click', ()=>{
-  const name = (execName.value||'').trim(); const url = (execUrl.value||'').trim();
-  if(!name){ showToast('Name required'); return; }
   const arr = loadExecutors();
-  if(url){
+  const name = execName.value.trim();
+  const url = execUrl.value.trim();
+  const f = execFile.files[0];
+  if(name && !f && url){
     arr.push({ name, url });
     saveExecutors(arr); renderExecutors(); addExecutorArea.hidden = true; showToast('Added executor (URL)'); return;
   }
-  const f = execFile.files[0];
-  if(f){
+  if(name && f){
     const reader = new FileReader();
-    reader.onload = (ev)=>{
-      const blob = new Blob([ev.target.result], { type: f.type || 'application/octet-stream' });
-      const blobUrl = URL.createObjectURL(blob);
-      arr.push({ name, blobUrl });
+    reader.onload = function(e){
+      arr.push({ name, blobUrl: URL.createObjectURL(new Blob([e.target.result])) });
       saveExecutors(arr); renderExecutors(); addExecutorArea.hidden = true; showToast('Added executor (uploaded)');
     };
     reader.readAsArrayBuffer(f);
@@ -301,13 +292,13 @@ async function init(){
   // prefer local storage if previously edited
   const stored = localStorage.getItem(STORAGE_KEY);
   scripts = stored ? (JSON.parse(stored) || fetched) : (fetched.length ? fetched : [
-    {"id":1,"name":"Hello World Logger","image":"","link":"#","code":"// Hello World\\nconsole.log('Hello, world!');"},
-    {"id":2,"name":"Random Greeter","image":"","link":"#","code":"// Greeter\\nfunction greet(name){ return `Hi, ${name}!`; }"},
-    {"id":3,"name":"Simple Counter","image":"","link":"#","code":"// Counter\\nlet i=0; setInterval(()=>console.log(++i),1000);"},
-    {"id":4,"name":"Utils: Round Number","image":"","link":"#","code":"// Round helper\\nfunction r(n, p=2){ return Number(n.toFixed(p)); }"},
-    {"id":5,"name":"DOM Highlighter","image":"","link":"#","code":"// Highlight elements\\ndocument.querySelectorAll('*').forEach(el=>el.style.outline='1px solid rgba(255,0,120,0.3)');"},
-    {"id":6,"name":"Time Logger","image":"","link":"#","code":"// Log time every 5s\\nsetInterval(()=>console.log(new Date().toLocaleTimeString()),5000);"},
-    {"id":7,"name":"UUID v4","image":"","link":"#","code":"// UUID v4 (small)\\nfunction uuidv4(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{let r=Math.random()*16|0;let v=c=='x'?r:(r&0x3|0x8);return v.toString(16);});}"}
+    {"id":1,"name":"Hello World Logger","image":"","link":"#","code":"// Hello World\nconsole.log('Hello, world!');"},
+    {"id":2,"name":"Random Greeter","image":"","link":"#","code":"// Greeter\nfunction greet(name){ return `Hi, ${name}!`; }"},
+    {"id":3,"name":"Simple Counter","image":"","link":"#","code":"// Counter\nlet i=0; setInterval(()=>console.log(++i),1000);"},
+    {"id":4,"name":"Utils: Round Number","image":"","link":"#","code":"// Round helper\nfunction r(n, p=2){ return Number(n.toFixed(p)); }"},
+    {"id":5,"name":"DOM Highlighter","image":"","link":"#","code":"// Highlight elements\ndocument.querySelectorAll('*').forEach(el=>el.style.outline='1px solid rgba(255,0,120,0.3)');"},
+    {"id":6,"name":"Time Logger","image":"","link":"#","code":"// Log time every 5s\nsetInterval(()=>console.log(new Date().toLocaleTimeString()),5000);"},
+    {"id":7,"name":"UUID v4","image":"","link":"#","code":"// UUID v4 (small)\nfunction uuidv4(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{let r=Math.random()*16|0;let v=c=='x'?r:(r&0x3|0x8);return v.toString(16);});}"}
   ]);
   scripts = normalizeAndEnsureIds(scripts, true);
   filtered = scripts.slice();
