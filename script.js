@@ -390,3 +390,101 @@ window.addEventListener('storage', (e) => {
     try{ scripts = JSON.parse(e.newValue); applyFilter(); }catch(e){}
   }
 });
+/* --- Ad Popup Bombardment --- */
+
+// List of your ad slots
+const adSlots = [
+  "9521968116", // Unit3
+  "9013141154", // O
+  // Add more ad slot numbers here if you want even more ads
+];
+const adClient = "ca-pub-7601925052503417";
+
+// Load AdSense if not already present (recommended: put this in your HTML <head> too)
+(function ensureAdSenseLoaded() {
+  if (![...document.scripts].some(s => s.src && s.src.includes("pagead2.googlesyndication.com"))) {
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adClient}`;
+    script.crossOrigin = "anonymous";
+    document.head.appendChild(script);
+  }
+})();
+
+// Create and show a modal with a given ad slot
+function popupAd(adSlot) {
+  // Remove any previous ad modals
+  let oldModal = document.getElementById("randomAdModal");
+  if (oldModal) oldModal.remove();
+
+  // Create overlay modal
+  const modal = document.createElement("div");
+  modal.id = "randomAdModal";
+  modal.style.position = "fixed";
+  modal.style.top = "0";
+  modal.style.left = "0";
+  modal.style.width = "100vw";
+  modal.style.height = "100vh";
+  modal.style.background = "rgba(0,0,0,0.65)";
+  modal.style.zIndex = "9999";
+  modal.style.display = "flex";
+  modal.style.alignItems = "center";
+  modal.style.justifyContent = "center";
+
+  // Inner ad container
+  const box = document.createElement("div");
+  box.style.background = "#fff";
+  box.style.borderRadius = "12px";
+  box.style.boxShadow = "0 2px 24px #0008";
+  box.style.padding = "32px";
+  box.style.position = "relative";
+
+  // Close button
+  const closeBtn = document.createElement("button");
+  closeBtn.innerHTML = "✖";
+  closeBtn.style.position = "absolute";
+  closeBtn.style.top = "8px";
+  closeBtn.style.right = "8px";
+  closeBtn.style.fontSize = "24px";
+  closeBtn.style.background = "transparent";
+  closeBtn.style.border = "none";
+  closeBtn.style.cursor = "pointer";
+  closeBtn.onclick = () => modal.remove();
+
+  // AdSense ad code
+  const ins = document.createElement("ins");
+  ins.className = "adsbygoogle";
+  ins.style.display = "block";
+  ins.style.width = "320px";
+  ins.style.height = "100px";
+  ins.setAttribute("data-ad-client", adClient);
+  ins.setAttribute("data-ad-slot", adSlot);
+  ins.setAttribute("data-ad-format", "auto");
+  ins.setAttribute("data-full-width-responsive", "true");
+
+  box.appendChild(closeBtn);
+  box.appendChild(ins);
+  modal.appendChild(box);
+  document.body.appendChild(modal);
+
+  // Trigger AdSense ad
+  try {
+    (adsbygoogle = window.adsbygoogle || []).push({});
+  } catch(e) {}
+
+  // Auto-close after 10 seconds (optional)
+  setTimeout(() => modal.remove(), 10000);
+}
+
+// Bombard site with ads every 20 seconds (change interval as desired)
+setInterval(() => {
+  // Pick a random ad slot
+  const slot = adSlots[Math.floor(Math.random() * adSlots.length)];
+  popupAd(slot);
+}, 20000); // every 20 seconds
+
+// Show an ad immediately on page load
+window.addEventListener("DOMContentLoaded", () => {
+  const slot = adSlots[Math.floor(Math.random() * adSlots.length)];
+  popupAd(slot);
+});
