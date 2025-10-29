@@ -208,8 +208,8 @@ async function startAdSequenceFor(item){
   clearAds();
 
   const settings = loadSettings();
-  const slot1 = settings.adSlot1 || 'YOUR_AD_SLOT_1';
-  const slot2 = settings.adSlot2 || 'YOUR_AD_SLOT_2';
+  const slot1 = settings.adSlot1 || '2117641886';
+  const slot2 = settings.adSlot2 || '4339398974';
   const client = settings.adClient || 'ca-pub-7601925052503417';
   const adDelay = Number(adDelaySelect.value||4)*1000;
 
