@@ -1,76 +1,102 @@
+<!-- index.html -->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Script App — Static Script Cards</title>
+  <title>ROBRP SCRIPTS</title>
 
-  <!-- AdSense: replace ca-pub-YOUR_PUBLISHER_ID with your publisher ID -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"
-    data-ad-client="ca-pub-YOUR_PUBLISHER_ID"></script>
+  <!-- Your AdSense script (provided) -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7601925052503417"
+     crossorigin="anonymous"></script>
 
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <h1>RPSCRIPTS</h1>
-    <p class="subtitle">Browse, search, and copy scripts. Ad placeholders will display before revealing code. Make sure you follow AdSense policies.</p>
+  <header class="top">
+    <div class="brand">
+      <h1>ROBRP SCRIPTS</h1>
+      <small class="muted">Browse · Search · Copy · Download executors</small>
+    </div>
+
+    <div class="header-actions">
+      <input id="searchInput" type="search" placeholder="Search scripts (id, name, link, code)..." aria-label="Search scripts">
+      <button id="toggleDevBtn" class="btn ghost" aria-expanded="false">Dev</button>
+    </div>
   </header>
 
-  <main class="main">
-    <section class="controls">
-      <label class="search">
-        <span class="visually-hidden">Search scripts</span>
-        <input id="searchInput" type="search" placeholder="Search by id, name, link or code…" aria-label="Search scripts" />
-      </label>
+  <nav class="executor-tabs" aria-label="Executors">
+    <div class="tabs-left">
+      <button class="tab active" data-tab="executors">Executors</button>
+      <button class="tab" data-tab="scripts">Scripts</button>
+    </div>
+    <div class="tabs-right">
+      <button id="addExecutorBtn" class="btn">+ Add Executor</button>
+    </div>
+  </nav>
 
-      <div class="right-controls">
-        <div class="count" id="countDisplay" aria-live="polite">0 / 0</div>
-        <label class="ad-delay">
-          Ad delay:
+  <main class="container">
+    <section id="executorsPanel" class="panel">
+      <h2>Executor Downloads</h2>
+      <p class="muted">Add executors (name + URL or upload a file). Downloadable links will appear below.</p>
+      <div id="executorList" class="executor-list"></div>
+
+      <div class="add-executor" id="addExecutorArea" hidden>
+        <input id="execName" placeholder="Executor name (e.g. Fluxus)" />
+        <input id="execUrl" placeholder="URL (http(s) link to file) or leave empty to upload" />
+        <input id="execFile" type="file" />
+        <div class="row">
+          <button id="saveExec" class="btn primary">Save</button>
+          <button id="cancelExec" class="btn ghost">Cancel</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="scriptsPanel" class="panel hidden">
+      <div class="panel-head">
+        <h2>Scripts <span id="countDisplay" class="muted">0 / 0</span></h2>
+        <label class="ad-delay">Ad delay:
           <select id="adDelaySelect" aria-label="Ad display seconds">
             <option value="3">3s</option>
             <option value="4" selected>4s</option>
             <option value="5">5s</option>
-            <option value="7">7s</option>
           </select>
         </label>
-
-        <button id="toggleDevBtn" class="btn ghost" aria-expanded="false">Developer JSON Editor</button>
       </div>
+
+      <div id="grid" class="grid" aria-live="polite"></div>
+      <div id="noResults" class="no-results" hidden>No scripts found.</div>
     </section>
-
-    <section id="grid" class="grid" aria-live="polite"></section>
-
-    <div id="noResults" class="no-results" hidden>No scripts found.</div>
   </main>
 
+  <!-- Dev panel -->
   <aside id="devPanel" class="devpanel" hidden>
-    <div class="devpanel-inner">
-      <h2>Developer JSON Editor</h2>
-      <p class="muted">Paste an array of script objects (or a single object). If you paste an array it will <strong>replace</strong> the list. If you paste single object(s), they will be appended with unique ids.</p>
+    <h3>Developer JSON Editor & Settings</h3>
+    <p class="muted">Paste JSON (array to replace, object to append). Set ad slot IDs below.</p>
+    <textarea id="devJson" placeholder='Paste JSON here (array or object)'></textarea>
 
-      <textarea id="devJson" placeholder='Paste JSON here (array or object)'></textarea>
-
-      <div class="devpanel-actions">
-        <input type="file" id="fileInput" accept=".json" />
-        <button id="applyJson" class="btn primary">Apply</button>
-        <button id="resetStorage" class="btn danger">Reset (clear local edits)</button>
-      </div>
-
-      <details class="muted"><summary>Example note</summary>
-        The scripts.json file included has a small "README" element explaining how to add scripts.
-      </details>
+    <div class="settings">
+      <label>Ad Slot 1: <input id="adSlot1" placeholder="YOUR_AD_SLOT_1"></label>
+      <label>Ad Slot 2: <input id="adSlot2" placeholder="YOUR_AD_SLOT_2"></label>
+      <label>Ad Client (optional): <input id="adClient" placeholder="ca-pub-7601925052503417"></label>
     </div>
+
+    <div class="dev-actions">
+      <button id="applyJson" class="btn primary">Apply JSON</button>
+      <button id="resetStorage" class="btn danger">Reset Local Edits</button>
+      <button id="closeDev" class="btn ghost">Close</button>
+    </div>
+
+    <details class="muted"><summary>AdSense policy note</summary>
+      Do not incentivize clicking ads. Use <code>data-adtest="on"</code> while testing. Follow AdSense policies.
+    </details>
   </aside>
 
-  <!-- modal for ad display + code reveal -->
+  <!-- modal overlay for ad sequence & reveal -->
   <div id="overlay" class="overlay" hidden aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <h3 id="modalTitle">Preparing script…</h3>
-      <div id="adSlotContainer" class="ad-slots">
-        <!-- ad slots will be injected here -->
-      </div>
+      <div id="adSlotContainer" class="ad-slots"></div>
 
       <div id="modalFooter" class="modal-footer" hidden>
         <pre id="revealedCode" class="code-block" tabindex="0"></pre>
@@ -82,11 +108,10 @@
     </div>
   </div>
 
-  <!-- small toast -->
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <footer class="footer">
-    <small>AdSense placeholders: Replace <code>ca-pub-YOUR_PUBLISHER_ID</code>, <code>YOUR_AD_SLOT_1</code> and <code>YOUR_AD_SLOT_2</code>. Use <code>data-adtest="on"</code> during development. Do not encourage clicks. Follow AdSense policy.</small>
+    <small>ROBRP SCRIPTS — Replace ad slot inputs in Dev settings with your real slots. Do not force clicks.</small>
   </footer>
 
   <script src="script.js" defer></script>
