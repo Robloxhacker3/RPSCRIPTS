@@ -201,6 +201,8 @@ function createAdSlot(slotId, client){
   return { wrapper, ins };
 }
 
+// ...existing code above...
+
 async function startAdSequenceFor(item){
   currentScript = item;
   overlay.hidden = false; overlay.setAttribute('aria-hidden','false');
@@ -224,6 +226,18 @@ async function startAdSequenceFor(item){
   adSlotContainer.appendChild(a2.wrapper);
   try{ (adsbygoogle = window.adsbygoogle || []).push({}); }catch(e){}
   await new Promise(r=>setTimeout(r, adDelay));
+
+  // reveal and copy (FIX: always update modalTitle and reveal code after both delays)
+  modalFooter.hidden = false;
+  revealedCode.textContent = item.code || '';
+  revealedCode.focus();
+  const ok = await tryCopy(item.code || '');
+  showToast(ok ? 'Script copied to clipboard' : 'Automatic copy failed; use Copy button');
+  // This guarantees that the modalTitle changes after ad sequence even if ads fail
+  $('modalTitle').textContent = `Script: ${item.name || ('ID '+item.id)}`;
+}
+
+// ...existing code below...
 
   // reveal and copy
   modalFooter.hidden = false;
