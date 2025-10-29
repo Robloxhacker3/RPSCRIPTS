@@ -1,4 +1,4 @@
-<!-- index.html -->
+<!-- index.html (updated: loading overlay permanently hidden) -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -11,6 +11,20 @@
      crossorigin="anonymous"></script>
 
   <link rel="stylesheet" href="style.css" />
+
+  <!-- QUICK FIX: permanently hide the loading overlay so the app won't get stuck on "Loading…" -->
+  <style>
+    /* Keep the element in the DOM (avoids JS null errors) but force it hidden and non-interactive. */
+    #overlay {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+    /* If your JS toggles classes on the modal itself, also ensure the dialog inside overlay stays hidden. */
+    #overlay .modal {
+      display: none !important;
+    }
+  </style>
 </head>
 <body>
   <header class="top">
@@ -89,7 +103,8 @@
     </details>
   </aside>
 
-  <!-- modal overlay for ad sequence & reveal -->
+  <!-- modal overlay for ad sequence & reveal
+       NOTE: kept in DOM but permanently hidden via inline CSS above so existing JS won't error. -->
   <div id="overlay" class="overlay" hidden aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <h3 id="modalTitle">Loading…</h3>
