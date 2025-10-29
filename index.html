@@ -25,27 +25,24 @@
     </div>
   </header>
 
-  <nav class="executor-tabs" aria-label="Executors">
-    <div class="tabs-left">
-      <button class="tab active" data-tab="executors">Executors</button>
-      <button class="tab" data-tab="scripts">Scripts</button>
-    </div>
-    <div class="tabs-right">
-      <button id="addExecutorBtn" class="btn">+ Add Executor</button>
-    </div>
-  </nav>
+  <main class="main">
+    <aside class="tabs-left">
+      <button class="tab active" data-tab="scripts">Scripts</button>
+      <button class="tab" data-tab="executors">Executors</button>
+    </aside>
 
-  <main class="container">
-    <section id="executorsPanel" class="panel">
-      <h2>Executor Downloads</h2>
-      <p class="muted">SOON</p>
-      <div id="executorList" class="executor-list"></div>
-
-      <div class="add-executor" id="addExecutorArea" hidden>
-        <input id="execName" placeholder="Executor name (e.g. Fluxus)" />
-        <input id="execUrl" placeholder="URL (http(s) link to file) or leave empty to upload" />
-        <input id="execFile" type="file" />
-        <div class="row">
+    <section id="executorsPanel" class="panel hidden">
+      <div class="panel-head">
+        <h2>Executors</h2>
+        <button id="addExecutorBtn" class="btn ghost">Add Executor</button>
+      </div>
+      <div id="executorList"></div>
+      <div id="addExecutorArea" class="modal hidden">
+        <h3>Add Executor</h3>
+        <input id="execName" type="text" placeholder="Name">
+        <input id="execUrl" type="url" placeholder="URL (or leave blank)">
+        <input id="execFile" type="file">
+        <div class="modal-actions">
           <button id="saveExec" class="btn primary">Save</button>
           <button id="cancelExec" class="btn ghost">Cancel</button>
         </div>
@@ -71,23 +68,23 @@
 
   <!-- Dev panel -->
   <aside id="devPanel" class="devpanel" hidden>
-    <h3>Developer JSON Editor & Settings</h3>
-    <p class="muted">Paste JSON (array to replace, object to append). Set ad slot IDs below.</p>
-    <textarea id="devJson" placeholder='Paste JSON here (array or object)'></textarea>
-
-    <div class="settings">
-      <label>Ad Slot 1: <input id="adSlot1" placeholder="2117641886"></label>
-      <label>Ad Slot 2: <input id="adSlot2" placeholder="4339398974"></label>
-      <label>Ad Client (optional): <input id="adClient" placeholder="ca-pub-7601925052503417"></label>
+    <h3>Developer Panel</h3>
+    <div>
+      <label for="adSlot1">Ad Slot 1:</label>
+      <input id="adSlot1" type="text" placeholder="Ad Slot 1">
+      <label for="adSlot2">Ad Slot 2:</label>
+      <input id="adSlot2" type="text" placeholder="Ad Slot 2">
+      <label for="adClient">Ad Client:</label>
+      <input id="adClient" type="text" placeholder="Ad Client">
     </div>
-
-    <div class="dev-actions">
+    <textarea id="devJson" rows="8" placeholder="Paste scripts JSON here"></textarea>
+    <div>
       <button id="applyJson" class="btn primary">Apply JSON</button>
-      <button id="resetStorage" class="btn danger">Reset Local Edits</button>
+      <button id="resetStorage" class="btn ghost">Reset Local Storage</button>
       <button id="closeDev" class="btn ghost">Close</button>
     </div>
-
-    <details class="muted"><summary>AdSense policy note</summary>
+    <details>
+      <summary>AdSense Policy Reminder</summary>
       Do not incentivize clicking ads. Use <code>data-adtest="on"</code> while testing. Follow AdSense policies.
     </details>
   </aside>
@@ -95,9 +92,8 @@
   <!-- modal overlay for ad sequence & reveal -->
   <div id="overlay" class="overlay" hidden aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <h3 id="modalTitle">Preparing script…</h3>
+      <h3 id="modalTitle">Loading…</h3>
       <div id="adSlotContainer" class="ad-slots"></div>
-
       <div id="modalFooter" class="modal-footer" hidden>
         <pre id="revealedCode" class="code-block" tabindex="0"></pre>
         <div class="modal-actions">
