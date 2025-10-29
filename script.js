@@ -1,195 +1,83 @@
-/* script.js — Script App behavior
-   Replace the AdSense placeholders:
-     - In index.html: ca-pub-YOUR_PUBLISHER_ID
-     - In the <ins> elements below: data-ad-slot="YOUR_AD_SLOT_1" and "YOUR_AD_SLOT_2"
-   During development you can add data-adtest="on" to the <ins> elements or the script tag.
+/* script.js
+   Updated to use your provided AdSense script tag.
+   Set Ad Slot IDs in Dev panel (Ad Slot 1 & Ad Slot 2). Publisher/client defaults to ca-pub-7601925052503417.
+   Behavior:
+    - Click "Get Script" -> show Ad #1 for configured seconds -> show Ad #2 -> reveal script and copy to clipboard.
+    - Dev JSON editor to replace/append scripts (persisted to localStorage).
+    - Executors panel: add URLs or upload files to create downloadable entries.
 */
 
-/* --------- Utilities --------- */
-const qs = (sel, root=document) => root.querySelector(sel);
-const qsa = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-const $ = (id) => document.getElementById(id);
+/* ---------- Utilities ---------- */
+const $ = id => document.getElementById(id);
+const q = (sel, root=document) => root.querySelector(sel);
+const qa = (sel, root=document) => Array.from((root||document).querySelectorAll(sel));
 
-function showToast(msg, ms=2400){
+function showToast(msg, ms=2200){
   const t = $('toast');
   t.textContent = msg;
   t.hidden = false;
   setTimeout(()=> t.hidden = true, ms);
 }
 
-/* Clipboard helper with graceful fallback */
 async function tryCopy(text){
   if(!text) return false;
   try{
     if(navigator.clipboard && navigator.clipboard.writeText){
       await navigator.clipboard.writeText(text);
       return true;
-    } else {
-      // fallback using textarea + execCommand
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position='fixed'; ta.style.opacity='0';
-      document.body.appendChild(ta);
-      ta.focus(); ta.select();
-      const ok = document.execCommand && document.execCommand('copy');
-      document.body.removeChild(ta);
-      return !!ok;
     }
-  }catch(e){
-    return false;
-  }
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    const ok = document.execCommand && document.execCommand('copy');
+    document.body.removeChild(ta);
+    return !!ok;
+  }catch(e){ return false; }
 }
 
-/* Simple SVG placeholder generator (data URI) */
+/* SVG placeholder */
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function svgPlaceholder(id, name){
-  const bgHue = 200 + (id * 37 % 60);
-  const text = (name || 'Script').slice(0,12);
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='300'>
-    <rect width='100%' height='100%' fill='hsl(${bgHue} 60% 16%)'/>
-    <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-size='36' fill='rgba(255,255,255,0.9)'>${escapeHtml(text)}</text>
-  </svg>`;
+  const hue = (id*47)%360;
+  const t = (name||'Script').slice(0,12);
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='300'><rect width='100%' height='100%' fill='hsl(${hue} 60% 14%)' /><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='34' fill='rgba(255,255,255,0.92)'>${escapeHtml(t)}</text></svg>`;
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
 }
 
-/* small html escape */
-function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+/* ---------- Storage & defaults ---------- */
+const STORAGE_KEY = 'robrp.scripts.v2';
+const SETTINGS_KEY = 'robrp.settings.v2';
+const EXEC_KEY = 'robrp.executors.v1';
 
-/* --------- Data loading & persistence --------- */
-const STORAGE_KEY = 'scriptApp.scripts.v1';
-
-async function loadScriptsJson(){
-  // Attempt to fetch scripts.json from the same folder
+async function fetchScripts(){
   try{
-    const res = await fetch('scripts.json', {cache: 'no-store'});
-    if(!res.ok) throw new Error('Network response not ok');
-    const j = await res.json();
-    // Accept either { scripts: [...] } or an array directly
+    const r = await fetch('scripts.json', {cache:'no-store'});
+    if(!r.ok) throw new Error('fetch fail');
+    const j = await r.json();
     if(Array.isArray(j)) return j;
     if(j && Array.isArray(j.scripts)) return j.scripts;
-    // otherwise if object with README + scripts or similar
-    return Array.isArray(j) ? j : (j.scripts || []);
-  }catch(err){
-    console.warn('Could not fetch scripts.json — falling back to localStorage or embedded defaults.', err);
+    return j.scripts || [];
+  }catch(e){
     const stored = localStorage.getItem(STORAGE_KEY);
-    if(stored){
-      try { return JSON.parse(stored); } catch(e){ console.warn('invalid stored JSON', e); }
-    }
-    // fallback embedded defaults (mirrors scripts.json contents)
-    return [
-      {"id":1,"name":"Hello World Logger","image":"","link":"#","code":"// Hello World\nconsole.log('Hello, world!');"},
-      {"id":2,"name":"Random Greeter","image":"","link":"#","code":"// Greeter\nfunction greet(name){ return `Hi, ${name}!`; }"},
-      {"id":3,"name":"Simple Counter","image":"","link":"#","code":"// Counter\nlet i=0; setInterval(()=>console.log(++i),1000);"},
-      {"id":4,"name":"Utils: Round Number","image":"","link":"#","code":"// Round helper\nfunction r(n, p=2){ return Number(n.toFixed(p)); }"},
-      {"id":5,"name":"DOM Highlighter","image":"","link":"#","code":"// Highlight elements\ndocument.querySelectorAll('*').forEach(el=>el.style.outline='1px solid rgba(255,0,120,0.3)');"},
-      {"id":6,"name":"Time Logger","image":"","link":"#","code":"// Log time every 5s\nsetInterval(()=>console.log(new Date().toLocaleTimeString()),5000);"},
-      {"id":7,"name":"UUID v4","image":"","link":"#","code":"// UUID v4 (small)\nfunction uuidv4(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{let r=Math.random()*16|0;let v=c=='x'?r:(r&0x3|0x8);return v.toString(16);});}"}
-    ];
+    if(stored) try{ return JSON.parse(stored); }catch(e){}
+    return []; // fallback: empty (scripts.json should exist locally)
   }
 }
 
-function saveScriptsLocal(arr){
-  try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
-  }catch(e){ console.warn('Could not save', e); }
-}
+function saveScripts(arr){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }catch(e){} }
+function saveSettings(s){ try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }catch(e){} }
+function loadSettings(){ try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY))||{} }catch(e){ return {}; } }
 
-/* --------- UI rendering --------- */
-let scripts = [];
-let filtered = [];
+function loadExecutors(){ try{ return JSON.parse(localStorage.getItem(EXEC_KEY))||[] }catch(e){ return []; } }
+function saveExecutors(arr){ try{ localStorage.setItem(EXEC_KEY, JSON.stringify(arr)); }catch(e){} }
 
+/* ---------- UI elements ---------- */
 const grid = $('grid');
 const searchInput = $('searchInput');
 const countDisplay = $('countDisplay');
+const noResults = $('noResults');
+const adDelaySelect = $('adDelaySelect');
 
-function renderScripts(list){
-  grid.innerHTML = '';
-  if(!list.length){
-    $('noResults').hidden = false;
-    countDisplay.textContent = `0 / ${scripts.length}`;
-    return;
-  } else {
-    $('noResults').hidden = true;
-  }
-
-  list.forEach(item => {
-    const card = document.createElement('article');
-    card.className = 'card';
-    card.tabIndex = 0;
-    card.setAttribute('role','article');
-    // media
-    const media = document.createElement('div');
-    media.className = 'media';
-    let imgEl = document.createElement('img');
-    if(item.image) imgEl.src = item.image;
-    else imgEl.src = svgPlaceholder(item.id, item.name);
-    imgEl.alt = item.name || `Script ${item.id}`;
-    media.appendChild(imgEl);
-    card.appendChild(media);
-
-    // title
-    const title = document.createElement('h3');
-    title.innerHTML = escapeHtml(item.name || 'Untitled');
-    card.appendChild(title);
-
-    // meta row
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    meta.innerHTML = `<span class="small">ID: ${item.id}</span><a class="small" href="${escapeHtml(item.link||'#')}" tabindex="0" rel="noopener noreferrer">${escapeHtml(item.link || '#')}</a>`;
-    card.appendChild(meta);
-
-    // actions
-    const actions = document.createElement('div');
-    actions.className = 'actions';
-    const left = document.createElement('div');
-    left.innerHTML = `<span class="small">Preview</span>`;
-    const right = document.createElement('div');
-
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'icon-btn';
-    copyBtn.title = 'Copy script';
-    copyBtn.ariaLabel = `Copy script ${item.name}`;
-    copyBtn.innerHTML = 'Copy';
-    copyBtn.addEventListener('click', async (e)=>{
-      e.stopPropagation();
-      const ok = await tryCopy(item.code || '');
-      showToast(ok ? 'Copied to clipboard' : 'Copy failed — select text to copy');
-    });
-
-    const getBtn = document.createElement('button');
-    getBtn.className = 'getBtn';
-    getBtn.innerHTML = 'Get Script';
-    getBtn.addEventListener('click', ()=> startAdSequenceFor(item));
-
-    // keyboard Enter/Space on card runs Get Script
-    card.addEventListener('keydown', (ev)=>{
-      if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); startAdSequenceFor(item); }
-    });
-
-    right.appendChild(copyBtn);
-    right.appendChild(getBtn);
-    actions.appendChild(left);
-    actions.appendChild(right);
-    card.appendChild(actions);
-
-    grid.appendChild(card);
-  });
-
-  countDisplay.textContent = `${list.length} / ${scripts.length}`;
-}
-
-function applyFilter(){
-  const q = (searchInput.value || '').trim().toLowerCase();
-  if(!q){ filtered = scripts.slice(); renderScripts(filtered); return; }
-  filtered = scripts.filter(s => {
-    return String(s.id).includes(q) ||
-           (s.name && s.name.toLowerCase().includes(q)) ||
-           (s.link && s.link.toLowerCase().includes(q)) ||
-           (s.code && s.code.toLowerCase().includes(q));
-  });
-  renderScripts(filtered);
-}
-
-/* --------- Ad display & reveal logic --------- */
 const overlay = $('overlay');
 const adSlotContainer = $('adSlotContainer');
 const modalFooter = $('modalFooter');
@@ -197,241 +85,260 @@ const revealedCode = $('revealedCode');
 const manualCopyBtn = $('manualCopy');
 const closeModalBtn = $('closeModal');
 
-let currentScript = null;
-
-function clearAds(){
-  adSlotContainer.innerHTML = '';
-  modalFooter.hidden = true;
-  revealedCode.textContent = '';
-}
-
-/* Create an ad slot element using AdSense placeholders.
-   Replace data-ad-slot values with YOUR_AD_SLOT_1 and YOUR_AD_SLOT_2.
-   Note: don't encourage clicks. During development add data-adtest="on" on the ins elements if needed.
-*/
-function createAdSlot(slotId){
-  const wrapper = document.createElement('div');
-  wrapper.className = 'ad-wrapper';
-  wrapper.style.width = '100%';
-  // The ins element (AdSense placeholder)
-  const ins = document.createElement('ins');
-  ins.className = 'adsbygoogle';
-  ins.style.display = 'block';
-  ins.setAttribute('data-ad-client', 'ca-pub-YOUR_PUBLISHER_ID'); // replace in index.html too
-  ins.setAttribute('data-ad-slot', slotId); // replace slotId with YOUR_AD_SLOT_1 / YOUR_AD_SLOT_2
-  ins.setAttribute('data-ad-format', 'auto');
-  ins.setAttribute('data-full-width-responsive', 'true');
-  // Optionally during development: ins.setAttribute('data-adtest','on');
-  wrapper.appendChild(ins);
-  return { wrapper, ins };
-}
-
-/* Show sequential ads then reveal the code and copy it */
-async function startAdSequenceFor(item){
-  currentScript = item;
-  overlay.hidden = false;
-  overlay.setAttribute('aria-hidden','false');
-  $('modalTitle').textContent = 'Showing ads before revealing script';
-  clearAds();
-
-  const adDelay = Number(document.getElementById('adDelaySelect').value) * 1000;
-
-  // First ad
-  const ad1 = createAdSlot('YOUR_AD_SLOT_1'); // replace this placeholder
-  adSlotContainer.appendChild(ad1.wrapper);
-  // request ad
-  try{ (adsbygoogle = window.adsbygoogle || []).push({}); }catch(e){ /* ignore */ }
-
-  // wait
-  await new Promise(r=>setTimeout(r, adDelay));
-
-  // Second ad
-  const ad2 = createAdSlot('YOUR_AD_SLOT_2');
-  adSlotContainer.appendChild(ad2.wrapper);
-  try{ (adsbygoogle = window.adsbygoogle || []).push({}); }catch(e){ /* ignore */ }
-
-  await new Promise(r=>setTimeout(r, adDelay));
-
-  // Reveal code & copy
-  modalFooter.hidden = false;
-  revealedCode.textContent = item.code || '';
-  // Focus code area for keyboard users
-  revealedCode.focus();
-  const ok = await tryCopy(item.code || '');
-  showToast(ok ? 'Script copied to clipboard' : 'Could not copy automatically; use Copy button');
-
-  // update modal title
-  $('modalTitle').textContent = `Script: ${item.name || ('ID '+item.id)}`;
-}
-
-/* modal buttons */
-manualCopyBtn.addEventListener('click', async ()=>{
-  if(!currentScript) return;
-  const ok = await tryCopy(currentScript.code || '');
-  showToast(ok ? 'Copied to clipboard' : 'Copy failed — select text to copy');
-});
-closeModalBtn.addEventListener('click', ()=> {
-  overlay.hidden = true;
-  overlay.setAttribute('aria-hidden','true');
-  clearAds();
-});
-
-/* close overlay on ESC */
-window.addEventListener('keydown', (e)=> {
-  if(e.key === 'Escape' && !overlay.hidden){
-    overlay.hidden = true;
-    overlay.setAttribute('aria-hidden','true');
-    clearAds();
-  }
-});
-
-/* --------- Developer JSON editor logic --------- */
 const devPanel = $('devPanel');
 const toggleDevBtn = $('toggleDevBtn');
 const devJson = $('devJson');
 const applyJson = $('applyJson');
 const resetStorage = $('resetStorage');
-const fileInput = $('fileInput');
+const closeDev = $('closeDev');
+const adSlot1Input = $('adSlot1');
+const adSlot2Input = $('adSlot2');
+const adClientInput = $('adClient');
 
-toggleDevBtn.addEventListener('click', ()=>{
-  const open = devPanel.hidden;
-  devPanel.hidden = !open;
-  toggleDevBtn.setAttribute('aria-expanded', String(open));
-});
+const executorListEl = $('executorList');
+const addExecutorBtn = $('addExecutorBtn');
+const addExecutorArea = $('addExecutorArea');
+const execName = $('execName');
+const execUrl = $('execUrl');
+const execFile = $('execFile');
+const saveExec = $('saveExec');
+const cancelExec = $('cancelExec');
 
-applyJson.addEventListener('click', ()=>{
-  const raw = devJson.value.trim();
-  if(!raw){ showToast('No JSON provided'); return; }
-  let parsed;
-  try{
-    parsed = JSON.parse(raw);
-  }catch(e){
-    showToast('JSON parse error: ' + e.message);
-    return;
-  }
-  // If array -> replace
-  if(Array.isArray(parsed)){
-    scripts = normalizeAndEnsureIds(parsed, true);
-    saveScriptsLocal(scripts);
-    applyFilter();
-    showToast('Replaced scripts with provided array');
-    return;
-  }
-  // If object with scripts key -> replace
-  if(parsed && Array.isArray(parsed.scripts)){
-    scripts = normalizeAndEnsureIds(parsed.scripts, true);
-    saveScriptsLocal(scripts);
-    applyFilter();
-    showToast('Replaced scripts from object.scripts');
-    return;
-  }
-  // If single object or array of objects -> append
-  if(parsed && typeof parsed === 'object'){
-    const items = Array.isArray(parsed) ? parsed : [parsed];
-    scripts = appendWithUniqueIds(items);
-    saveScriptsLocal(scripts);
-    applyFilter();
-    showToast('Appended script(s) and saved');
-    return;
-  }
-  showToast('Unrecognized JSON structure');
-});
+/* ---------- Data & rendering ---------- */
+let scripts = [];
+let filtered = [];
 
-resetStorage.addEventListener('click', ()=>{
-  localStorage.removeItem(STORAGE_KEY);
-  showToast('Local edits cleared. Reload to re-fetch original scripts.json');
-});
-
-/* file input to load a scripts.json file from disk (for local usage) */
-fileInput.addEventListener('change', (e)=>{
-  const f = e.target.files[0];
-  if(!f) return;
-  const reader = new FileReader();
-  reader.onload = (ev)=>{
-    try{
-      const parsed = JSON.parse(ev.target.result);
-      if(Array.isArray(parsed)) scripts = normalizeAndEnsureIds(parsed, true);
-      else if(parsed.scripts) scripts = normalizeAndEnsureIds(parsed.scripts, true);
-      else showToast('File parsed but no scripts found');
-      saveScriptsLocal(scripts);
-      applyFilter();
-      showToast('Loaded scripts from file');
-    }catch(err){ showToast('File JSON parse error'); }
-  };
-  reader.readAsText(f);
-});
-
-/* Helpers for merging/appending */
 function normalizeAndEnsureIds(arr, forceReplace=false){
-  // Ensure each item has id and required fields
-  const out = arr.map((it, i)=>{
-    const obj = Object.assign({}, it);
-    if(obj.id == null) obj.id = (i+1);
-    obj.name = obj.name || `Script ${obj.id}`;
-    obj.image = obj.image || '';
-    obj.link = obj.link || '#';
-    obj.code = obj.code || '';
-    return obj;
-  });
-  // ensure unique ids: if duplicates, reassign to incremental values
+  const out = arr.map((it,i)=>{ const o=Object.assign({},it); if(o.id==null) o.id = i+1; o.name = o.name||('Script '+o.id); o.image = o.image||''; o.link = o.link||'#'; o.code = o.code||''; return o; });
   const used = new Set();
   let max = Math.max(0, ...(scripts.map(s=>s.id||0)));
   out.forEach(o=>{
-    if(used.has(o.id) || (scripts.find(s=>s.id===o.id) && !forceReplace)){
-      max += 1; o.id = max;
-    }
+    if(used.has(o.id) || (scripts.find(s=>s.id===o.id) && !forceReplace)){ max += 1; o.id = max; }
     used.add(o.id);
   });
   return out;
 }
-
 function appendWithUniqueIds(items){
   const curMax = Math.max(0, ...(scripts.map(s=>s.id||0)));
   let nextId = curMax + 1;
-  const toAppend = items.map(it=>{
-    const obj = Object.assign({}, it);
-    if(!obj.id || scripts.find(s=>s.id===obj.id)) { obj.id = nextId++; }
-    obj.name = obj.name || `Script ${obj.id}`;
-    obj.image = obj.image || '';
-    obj.link = obj.link || '#';
-    obj.code = obj.code || '';
-    return obj;
-  });
+  const toAppend = items.map(it=>{ const o = Object.assign({}, it); if(!o.id || scripts.find(s=>s.id===o.id)) o.id = nextId++; o.name = o.name||('Script '+o.id); o.image = o.image||''; o.link = o.link||'#'; o.code = o.code||''; return o; });
   return scripts.concat(toAppend);
 }
 
-/* --------- Initialization --------- */
-async function init(){
-  scripts = await loadScriptsJson();
-  // if localStorage contains edits merge/replace
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if(stored){
-    try{
-      scripts = JSON.parse(stored);
-    }catch(e){ /* ignore */ }
+function renderExecutors(){
+  const arr = loadExecutors();
+  executorListEl.innerHTML = '';
+  if(!arr.length) { executorListEl.innerHTML = '<div class="muted">No executors added yet.</div>'; return; }
+  arr.forEach((e, idx) => {
+    const item = document.createElement('div'); item.className = 'exec-item';
+    const left = document.createElement('div'); left.innerHTML = `<strong>${e.name}</strong><div class="muted small">${e.url||'(local file)'}</div>`;
+    const right = document.createElement('div');
+    const a = document.createElement('a'); a.href = e.url || e.blobUrl || '#'; a.download = e.name || 'executor.bin'; a.textContent = 'Download'; a.className = 'btn';
+    const del = document.createElement('button'); del.className = 'btn ghost'; del.textContent = 'Delete';
+    del.addEventListener('click', ()=>{ const arr2 = loadExecutors(); arr2.splice(idx,1); saveExecutors(arr2); renderExecutors(); showToast('Deleted executor'); });
+    right.appendChild(a); right.appendChild(del);
+    item.appendChild(left); item.appendChild(right);
+    executorListEl.appendChild(item);
+  });
+}
+
+function renderScripts(list){
+  grid.innerHTML = '';
+  if(!list.length){
+    noResults.hidden = false;
+    countDisplay.textContent = `0 / ${scripts.length}`;
+    return;
+  } else noResults.hidden = true;
+
+  list.forEach(item=>{
+    const card = document.createElement('article'); card.className = 'card'; card.tabIndex = 0;
+    const media = document.createElement('div'); media.className = 'media';
+    const img = document.createElement('img'); img.alt = item.name || ('Script '+item.id); img.src = item.image || svgPlaceholder(item.id, item.name);
+    media.appendChild(img);
+    const title = document.createElement('h3'); title.textContent = item.name || ('Script '+item.id);
+    const meta = document.createElement('div'); meta.className = 'meta';
+    const linkText = item.link || '#';
+    meta.innerHTML = `<span>ID: ${item.id}</span><a href="${linkText}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+    const actions = document.createElement('div'); actions.className = 'actions';
+    const copyBtn = document.createElement('button'); copyBtn.className = 'icon-btn'; copyBtn.textContent = 'Copy';
+    copyBtn.addEventListener('click', async (e)=>{ e.stopPropagation(); const ok = await tryCopy(item.code||''); showToast(ok?'Copied to clipboard':'Copy failed'); });
+    const getBtn = document.createElement('button'); getBtn.className = 'getBtn'; getBtn.textContent = 'Get Script';
+    getBtn.addEventListener('click', ()=> startAdSequenceFor(item));
+    actions.appendChild(copyBtn); actions.appendChild(getBtn);
+    card.appendChild(media); card.appendChild(title); card.appendChild(meta); card.appendChild(actions);
+    card.addEventListener('keydown', (ev)=>{ if(ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); startAdSequenceFor(item); } });
+    grid.appendChild(card);
+  });
+
+  countDisplay.textContent = `${list.length} / ${scripts.length}`;
+}
+
+function applyFilter(){
+  const qstr = (searchInput.value||'').trim().toLowerCase();
+  if(!qstr){ filtered = scripts.slice(); renderScripts(filtered); return; }
+  filtered = scripts.filter(s => {
+    return String(s.id).includes(qstr) ||
+           (s.name && s.name.toLowerCase().includes(qstr)) ||
+           (s.link && s.link.toLowerCase().includes(qstr)) ||
+           (s.code && s.code.toLowerCase().includes(qstr));
+  });
+  renderScripts(filtered);
+}
+
+/* ---------- Ad sequence & reveal ---------- */
+let currentScript = null;
+function clearAds(){ adSlotContainer.innerHTML = ''; modalFooter.hidden = true; revealedCode.textContent = ''; }
+
+function createAdSlot(slotId, client){
+  const wrapper = document.createElement('div'); wrapper.className = 'ad-wrapper'; wrapper.style.width = '100%';
+  const ins = document.createElement('ins'); ins.className = 'adsbygoogle'; ins.style.display = 'block';
+  if(client) ins.setAttribute('data-ad-client', client);
+  if(slotId) ins.setAttribute('data-ad-slot', slotId);
+  ins.setAttribute('data-ad-format', 'auto');
+  ins.setAttribute('data-full-width-responsive', 'true');
+  // during development: ins.setAttribute('data-adtest','on');
+  wrapper.appendChild(ins);
+  return { wrapper, ins };
+}
+
+async function startAdSequenceFor(item){
+  currentScript = item;
+  overlay.hidden = false; overlay.setAttribute('aria-hidden','false');
+  $('modalTitle').textContent = 'Displaying ads before revealing script';
+  clearAds();
+
+  const settings = loadSettings();
+  const slot1 = settings.adSlot1 || 'YOUR_AD_SLOT_1';
+  const slot2 = settings.adSlot2 || 'YOUR_AD_SLOT_2';
+  const client = settings.adClient || 'ca-pub-7601925052503417';
+  const adDelay = Number(adDelaySelect.value||4)*1000;
+
+  // first ad
+  const a1 = createAdSlot(slot1, client);
+  adSlotContainer.appendChild(a1.wrapper);
+  try{ (adsbygoogle = window.adsbygoogle || []).push({}); }catch(e){}
+  await new Promise(r=>setTimeout(r, adDelay));
+
+  // second ad
+  const a2 = createAdSlot(slot2, client);
+  adSlotContainer.appendChild(a2.wrapper);
+  try{ (adsbygoogle = window.adsbygoogle || []).push({}); }catch(e){}
+  await new Promise(r=>setTimeout(r, adDelay));
+
+  // reveal and copy
+  modalFooter.hidden = false;
+  revealedCode.textContent = item.code || '';
+  revealedCode.focus();
+  const ok = await tryCopy(item.code || '');
+  showToast(ok ? 'Script copied to clipboard' : 'Automatic copy failed; use Copy button');
+  $('modalTitle').textContent = `Script: ${item.name || ('ID '+item.id)}`;
+}
+
+/* modal actions */
+manualCopyBtn.addEventListener('click', async ()=>{ if(!currentScript) return; const ok = await tryCopy(currentScript.code||''); showToast(ok?'Copied to clipboard':'Copy failed'); });
+closeModalBtn.addEventListener('click', ()=>{ overlay.hidden = true; overlay.setAttribute('aria-hidden','true'); clearAds(); });
+window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && !overlay.hidden){ overlay.hidden = true; overlay.setAttribute('aria-hidden','true'); clearAds(); } });
+
+/* ---------- Developer JSON editor & settings ---------- */
+toggleDevBtn.addEventListener('click', ()=>{ const open = devPanel.hidden; devPanel.hidden = !open; toggleDevBtn.setAttribute('aria-expanded', String(open)); });
+closeDev.addEventListener('click', ()=>{ devPanel.hidden = true; toggleDevBtn.setAttribute('aria-expanded','false'); });
+
+applyJson.addEventListener('click', ()=> {
+  const raw = devJson.value.trim(); if(!raw){ showToast('No JSON provided'); return; }
+  let parsed;
+  try{ parsed = JSON.parse(raw); }catch(e){ showToast('JSON parse error: '+e.message); return; }
+  if(Array.isArray(parsed)){ scripts = normalizeAndEnsureIds(parsed, true); saveScripts(scripts); applyFilter(); showToast('Replaced scripts'); return; }
+  if(parsed && Array.isArray(parsed.scripts)){ scripts = normalizeAndEnsureIds(parsed.scripts, true); saveScripts(scripts); applyFilter(); showToast('Replaced scripts from object'); return; }
+  if(parsed && typeof parsed === 'object'){ const items = Array.isArray(parsed) ? parsed : [parsed]; scripts = appendWithUniqueIds(items); saveScripts(scripts); applyFilter(); showToast('Appended scripts'); return; }
+  showToast('Unrecognized JSON structure');
+});
+
+resetStorage.addEventListener('click', ()=>{ localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(SETTINGS_KEY); localStorage.removeItem(EXEC_KEY); showToast('Local edits cleared'); location.reload(); });
+
+function readAndSaveSettings(){
+  const s = { adSlot1: (adSlot1Input.value||'').trim(), adSlot2: (adSlot2Input.value||'').trim(), adClient: (adClientInput.value||'').trim() };
+  saveSettings(s); showToast('Settings saved');
+}
+adSlot1Input.addEventListener('change', readAndSaveSettings);
+adSlot2Input.addEventListener('change', readAndSaveSettings);
+adClientInput.addEventListener('change', readAndSaveSettings);
+
+/* ---------- Executors UI ---------- */
+addExecutorBtn.addEventListener('click', ()=>{ addExecutorArea.hidden = false; execName.value=''; execUrl.value=''; execFile.value=''; execName.focus(); });
+cancelExec.addEventListener('click', ()=>{ addExecutorArea.hidden = true; });
+
+saveExec.addEventListener('click', ()=>{
+  const name = (execName.value||'').trim(); const url = (execUrl.value||'').trim();
+  if(!name){ showToast('Name required'); return; }
+  const arr = loadExecutors();
+  if(url){
+    arr.push({ name, url });
+    saveExecutors(arr); renderExecutors(); addExecutorArea.hidden = true; showToast('Added executor (URL)'); return;
   }
-  // normalize fields
+  const f = execFile.files[0];
+  if(f){
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      const blob = new Blob([ev.target.result], { type: f.type || 'application/octet-stream' });
+      const blobUrl = URL.createObjectURL(blob);
+      arr.push({ name, blobUrl });
+      saveExecutors(arr); renderExecutors(); addExecutorArea.hidden = true; showToast('Added executor (uploaded)');
+    };
+    reader.readAsArrayBuffer(f);
+    return;
+  }
+  showToast('Provide URL or upload a file');
+});
+
+/* ---------- Initialization ---------- */
+async function init(){
+  const fetched = await fetchScripts();
+  // prefer local storage if previously edited
+  const stored = localStorage.getItem(STORAGE_KEY);
+  scripts = stored ? (JSON.parse(stored) || fetched) : (fetched.length ? fetched : [
+    {"id":1,"name":"Hello World Logger","image":"","link":"#","code":"// Hello World\\nconsole.log('Hello, world!');"},
+    {"id":2,"name":"Random Greeter","image":"","link":"#","code":"// Greeter\\nfunction greet(name){ return `Hi, ${name}!`; }"},
+    {"id":3,"name":"Simple Counter","image":"","link":"#","code":"// Counter\\nlet i=0; setInterval(()=>console.log(++i),1000);"},
+    {"id":4,"name":"Utils: Round Number","image":"","link":"#","code":"// Round helper\\nfunction r(n, p=2){ return Number(n.toFixed(p)); }"},
+    {"id":5,"name":"DOM Highlighter","image":"","link":"#","code":"// Highlight elements\\ndocument.querySelectorAll('*').forEach(el=>el.style.outline='1px solid rgba(255,0,120,0.3)');"},
+    {"id":6,"name":"Time Logger","image":"","link":"#","code":"// Log time every 5s\\nsetInterval(()=>console.log(new Date().toLocaleTimeString()),5000);"},
+    {"id":7,"name":"UUID v4","image":"","link":"#","code":"// UUID v4 (small)\\nfunction uuidv4(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{let r=Math.random()*16|0;let v=c=='x'?r:(r&0x3|0x8);return v.toString(16);});}"}
+  ]);
   scripts = normalizeAndEnsureIds(scripts, true);
   filtered = scripts.slice();
   renderScripts(filtered);
 
+  // load settings into dev panel
+  const s = loadSettings();
+  adSlot1Input.value = s.adSlot1 || '';
+  adSlot2Input.value = s.adSlot2 || '';
+  adClientInput.value = s.adClient || 'ca-pub-7601925052503417';
+
   // wire search
   searchInput.addEventListener('input', applyFilter);
 
-  // developer panel toggle keyboard shortcut (Ctrl+Shift+J)
-  window.addEventListener('keydown', (e)=>{
-    if(e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'j'){
-      toggleDevBtn.click();
-    }
+  // tabs
+  qa('.tabs-left .tab').forEach(t=>{
+    t.addEventListener('click', (ev)=>{
+      qa('.tabs-left .tab').forEach(x=>x.classList.remove('active'));
+      ev.currentTarget.classList.add('active');
+      const tab = ev.currentTarget.dataset.tab;
+      document.getElementById(tab+'Panel').classList.remove('hidden');
+      const other = tab==='scripts' ? 'executors' : 'scripts';
+      document.getElementById(other+'Panel').classList.add('hidden');
+    });
   });
+
+  // dev toggle shortcut Ctrl+Shift+J
+  window.addEventListener('keydown', (e)=>{ if(e.ctrlKey && e.shiftKey && e.key.toLowerCase()==='j') toggleDevBtn.click(); });
+
+  renderExecutors();
 }
 init();
 
-/* show count updates if scripts change externally */
-window.addEventListener('storage', (e)=>{
+/* keep storage sync */
+window.addEventListener('storage', (e) => {
   if(e.key === STORAGE_KEY){
     try{ scripts = JSON.parse(e.newValue); applyFilter(); }catch(e){}
   }
 });
-
-/* End of script.js */
