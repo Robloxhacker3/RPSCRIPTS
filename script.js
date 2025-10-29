@@ -239,15 +239,6 @@ async function startAdSequenceFor(item){
 
 // ...existing code below...
 
-  // reveal and copy
-  modalFooter.hidden = false;
-  revealedCode.textContent = item.code || '';
-  revealedCode.focus();
-  const ok = await tryCopy(item.code || '');
-  showToast(ok ? 'Script copied to clipboard' : 'Automatic copy failed; use Copy button');
-  $('modalTitle').textContent = `Script: ${item.name || ('ID '+item.id)}`;
-}
-
 /* modal actions */
 manualCopyBtn.addEventListener('click', async ()=>{ if(!currentScript) return; const ok = await tryCopy(currentScript.code||''); showToast(ok?'Copied to clipboard':'Copy failed'); });
 closeModalBtn.addEventListener('click', ()=>{ overlay.hidden = true; overlay.setAttribute('aria-hidden','true'); clearAds(); });
