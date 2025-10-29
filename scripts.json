@@ -1,0 +1,12 @@
+{
+  "README": "This file contains the array 'scripts'. To add a new script, append an object with { id:number, name:string, image:string or empty, link:string, code:string }. If you paste an array into the in-app JSON editor it will replace the list. If you paste a single object it will be appended with a unique id.",
+  "scripts": [
+    {"id":1, "name":"Hello World Logger", "image":"", "link":"#", "code":"// Hello World\nconsole.log('Hello, world!');"},
+    {"id":2, "name":"Random Greeter", "image":"", "link":"#", "code":"// Greeter\nfunction greet(name){ return `Hi, ${name}!`; }"},
+    {"id":3, "name":"Simple Counter", "image":"", "link":"#", "code":"// Counter\nlet i=0; setInterval(()=>console.log(++i),1000);"},
+    {"id":4, "name":"Utils: Round Number", "image":"", "link":"#", "code":"// Round helper\nfunction r(n, p=2){ return Number(n.toFixed(p)); }"},
+    {"id":5, "name":"DOM Highlighter", "image":"", "link":"#", "code":"// Highlight elements\ndocument.querySelectorAll('*').forEach(el=>el.style.outline='1px solid rgba(255,0,120,0.3)');"},
+    {"id":6, "name":"Time Logger", "image":"", "link":"#", "code":"// Log time every 5s\nsetInterval(()=>console.log(new Date().toLocaleTimeString()),5000);"},
+    {"id":7, "name":"UUID v4", "image":"", "link":"#", "code":"// UUID v4 (small)\nfunction uuidv4(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{let r=Math.random()*16|0;let v=c=='x'?r:(r&0x3|0x8);return v.toString(16);});}"}
+  ]
+}
